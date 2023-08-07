@@ -716,6 +716,10 @@ def _dmft_step(sum_k, solvers, it, general_params,
     dens = None
     if general_params['csc']:
         # handling the density correction for fcsc calculations
+        if dft_params['dft_code'] == 'wien2k':
+            deltaN, dens = sum_k.calc_density_correction(dm_type=dft_params['dft_code'],
+                                                         filename=general_params['seedname']+'.qdmft')
+
         assert dft_irred_kpt_indices is None or dft_params['dft_code'] == 'vasp'
         deltaN, dens, E_bandcorr = sum_k.calc_density_correction(dm_type=dft_params['dft_code'],
                                                                  kpts_to_write=dft_irred_kpt_indices)
@@ -744,6 +748,11 @@ def _dmft_step(sum_k, solvers, it, general_params,
                                            density_mat,
                                            shell_multiplicity,
                                            E_bandcorr)
+
+        # write the energy correction to  case.qdmft file for Wien2k csc
+        if dft_params['dft_code'] == 'wien2k':
+            with open(general_params['seedname']+'.qdmft', 'a') as file:
+                file.write("%.16f\n" % observables['E_corr_en'][-1])
 
         write_obs(observables, sum_k, general_params)
 

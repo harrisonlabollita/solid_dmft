@@ -37,6 +37,7 @@ import triqs.utility.mpi as mpi
 
 from triqs_dft_tools.converters.wannier90 import Wannier90Converter
 from triqs_dft_tools.converters.vasp import VaspConverter
+from triqs_dft_tools.converters.wien2k import Wien2kConverter
 from triqs_dft_tools.converters.plovasp.vaspio import VaspData
 import triqs_dft_tools.converters.plovasp.converter as plo_converter
 
@@ -58,6 +59,13 @@ def _run_plo_converter(general_params):
     plo_converter.generate_and_output_as_text(general_params['plo_cfg'], vasp_dir='./')
     # Writes new H(k) to h5 archive
     converter = VaspConverter(filename=general_params['seedname'])
+    converter.convert_dft_input()
+
+def _run_wien2k_converter(general_params):
+    if not mpi.is_master_node():
+        return
+
+    converter = Wien2kConverter(filename=general_params['seedname'])
     converter.convert_dft_input()
 
 def _run_wannier90(general_params, dft_params):
@@ -268,7 +276,7 @@ def csc_flow_control(general_params, solver_params, dft_params, advanced_params)
     mpi.barrier()
     irred_indices = None
     start_time_dft = timer()
-    mpi.report('  solid_dmft: Running {}...'.format(dft_params['dft_code'].upper()))
+    if dft_params['dft_code'] != 'wien2k': mpi.report('  solid_dmft: Running {}...'.format(dft_params['dft_code'].upper()))
 
     if dft_params['dft_code'] == 'qe':
         if iteration_offset == 0:
@@ -278,9 +286,11 @@ def csc_flow_control(general_params, solver_params, dft_params, advanced_params)
     elif dft_params['dft_code'] == 'vasp':
         vasp_process_id, irred_indices = _full_vasp_run(general_params, dft_params, True)
 
+    elif dft_params['dft_code'] == 'wien2k':  _run_wien2k_converter(general_params)
+
     mpi.barrier()
     end_time_dft = timer()
-    mpi.report('  solid_dmft: DFT cycle took {:10.3f} seconds'.format(end_time_dft-start_time_dft))
+    if dft_params['dft_code'] != 'wien2k': mpi.report('  solid_dmft: DFT cycle took {:10.3f} seconds'.format(end_time_dft-start_time_dft))
 
     # Now that everything is ready, starts DFT+DMFT loop
     while True:
@@ -291,6 +301,8 @@ def csc_flow_control(general_params, solver_params, dft_params, advanced_params)
                 if dft_params['dft_code'] == 'qe':
                     # TODO: implement
                     raise NotImplementedError('store_eigenvals not yet compatible with dft_code = qe')
+                elif dft_params['dft_code'] == 'wien2k':
+                    raise NotImplementedError('store_eigenvals not yet compatible with dft_code = wien2k')
                 _store_dft_eigvals(path_to_h5=general_params['seedname']+'.h5',
                                    iteration=iter_dmft,
                                    projector_type=dft_params['projector_type'])
@@ -300,6 +312,7 @@ def csc_flow_control(general_params, solver_params, dft_params, advanced_params)
                 dft_energy = vasp.read_dft_energy()
             elif dft_params['dft_code'] == 'qe':
                 dft_energy = qe.read_dft_energy(general_params['seedname'], iter_dmft)
+
         dft_energy = mpi.bcast(dft_energy)
 
         mpi.report('', '#'*80, 'Calling dmft_cycle')
@@ -340,7 +353,7 @@ def csc_flow_control(general_params, solver_params, dft_params, advanced_params)
         # Restarts DFT
         mpi.barrier()
         start_time_dft = timer()
-        mpi.report('  solid_dmft: Running {}...'.format(dft_params['dft_code'].upper()))
+        if dft_params['dft_code'] != 'wien2k': mpi.report('  solid_dmft: Running {}...'.format(dft_params['dft_code'].upper()))
 
         # Runs DFT and converter
         if dft_params['dft_code'] == 'qe':
@@ -355,7 +368,7 @@ def csc_flow_control(general_params, solver_params, dft_params, advanced_params)
 
         mpi.barrier()
         end_time_dft = timer()
-        mpi.report('  solid_dmft: DFT cycle took {:10.3f} seconds'.format(end_time_dft-start_time_dft))
+        if dft_params['dft_code'] != 'wien2k': mpi.report('  solid_dmft: DFT cycle took {:10.3f} seconds'.format(end_time_dft-start_time_dft))
 
     # Kills background VASP process for clean end
     if mpi.is_master_node() and dft_params['dft_code'] == 'vasp':

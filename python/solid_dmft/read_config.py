@@ -362,6 +362,7 @@ dft_code : string
 
             * 'vasp'
             * 'qe'
+            * 'wien2k'
 n_cores : int
             number of cores for the DFT code (VASP)
 n_iter : int, optional, default= 6
@@ -382,6 +383,7 @@ mpi_env : string, default= 'local'
 projector_type : string, optional, default= 'w90'
             plo: uses VASP's PLO formalism, requires LOCPROJ in the INCAR
             w90: uses Wannier90 (for VASP and QuantumEspresso)
+            dmftproj: uses the DMFTPROJ Fortran program available with TRIQS/dft_tools
 w90_exec :  string, default='wannier90.x'
             the command to start a single-core wannier run
 w90_tolerance :  float, default=1e-6
@@ -643,14 +645,15 @@ PROPERTIES_PARAMS = {'general': {'seedname': {'used': True},
                                                           'default': 'none'},
 
                                  'h_int_basis' : {'valid for': lambda x, _: x in ('triqs', 'wien2k', 'wannier90', 'qe', 'vasp'),
-                                            'used': True, 'default' : 'triqs'}
+                                            'used': True, 
+                                            'default' : 'triqs'}
 
                                 },
                      'dft': {'dft_code': {'used': lambda params: params['general']['csc'],
-                                          'valid for': lambda x, _: x in ('vasp', 'qe')},
+                                          'valid for': lambda x, _: x in ('vasp', 'qe', 'wien2k')},
 
                              'n_cores': {'converter': int, 'valid for': lambda x, _: x > 0,
-                                         'used': lambda params: params['general']['csc']},
+                                         'used': lambda params: params['general']['csc'] and params['dft']['dft_code'] != 'wien2k'},
 
                              'n_iter': {'converter': int, 'valid for': lambda x, _: x > 0,
                                         'used': lambda params: params['general']['csc'] and params['dft']['dft_code'] == 'vasp',
@@ -660,7 +663,8 @@ PROPERTIES_PARAMS = {'general': {'seedname': {'used': True},
                                               'used': lambda params: params['general']['csc'] and params['dft']['dft_code'] == 'vasp',
                                               'default': lambda params: params['dft']['n_iter']},
 
-                             'dft_exec': {'used': lambda params: params['general']['csc'], 'default': 'vasp_std'},
+                             'dft_exec': {'used': lambda params: params['general']['csc'] and params['dft']['dft_code'] != 'wien2k', 
+                                          'default': 'vasp_std'},
 
                              'store_eigenvals': {'converter': BOOL_PARSER,
                                                  'used': lambda params: params['general']['csc'],
@@ -670,7 +674,8 @@ PROPERTIES_PARAMS = {'general': {'seedname': {'used': True},
                                          'used': lambda params: params['general']['csc'], 'default': 'default'},
 
                              'projector_type': {'valid for': lambda x, params: x == 'w90' or x == 'plo' and params['dft']['dft_code'] == 'vasp',
-                                                'used': lambda params: params['general']['csc'], 'default': 'w90'},
+                                                'used': lambda params: params['general']['csc'] and params['dft']['dft_code'] != 'wien2k', 
+                                                'default': 'w90'},
 
                              'w90_exec': {'used': lambda params: (params['general']['csc']
                                                                   and params['dft']['dft_code'] == 'vasp' and params['dft']['projector_type'] == 'w90'),
