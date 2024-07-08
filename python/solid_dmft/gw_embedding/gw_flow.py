@@ -404,8 +404,9 @@ def embedding_driver(general_params, solver_params, gw_params, advanced_params):
         mpi.report('Actual time for solver: {:.2f} s'.format(timer() - start_time))
 
         # some printout of the obtained density matrices and some basic checks from the unsymmetrized solver output
-        if solver_params[ish]['type'] == 'ctseg':
-            density_shell[ish] = np.sum(solvers[ish].triqs_solver.results.densities)
+        if solvers[ish].solver_params['type'] == 'ctseg':
+            for block, occ_mat in solvers[ish].orbital_occupations.items():
+                density_shell[ish] += np.trace(occ_mat)
             density_tot += density_shell[ish]
             density_mat_unsym[ish] = {}
             for i, (block, norb) in enumerate(sumk.gf_struct_solver[ish].items()):

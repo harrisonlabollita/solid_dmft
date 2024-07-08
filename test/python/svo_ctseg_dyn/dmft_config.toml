@@ -34,7 +34,7 @@ crm_dyson_solver = true
 fit_min_n = 10
 fit_max_n = 60
 fit_max_moment = 4
-n_tau_k = 10001
+n_tau_bosonic = 10001
 
 [gw]
 code = "aimbes"
